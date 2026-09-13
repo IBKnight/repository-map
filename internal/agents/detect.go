@@ -71,6 +71,7 @@ func Analyze(rootPath string, root *scanner.Node, projectName string) Analysis {
 		}
 	}
 	applyNodePackageManager(found, topNames)
+	applyFlutterFvm(found, topNames)
 
 	return Analysis{
 		ProjectName:  projectName,
@@ -133,6 +134,36 @@ func applyNodePackageManager(found []Ecosystem, topNames map[string]bool) {
 		found[i].BuildCmd = cmds.BuildCmd
 		found[i].TestCmd = cmds.TestCmd
 		found[i].LintCmd = cmds.LintCmd
+	}
+}
+
+// flutterFvmMarkers are root-level names indicating a project pins its
+// Flutter SDK version via FVM (Flutter Version Management): the ".fvm"
+// directory (holding the pinned-SDK symlink and, in older FVM versions,
+// its config) or the ".fvmrc" pin file used by newer versions.
+var flutterFvmMarkers = []string{".fvm", ".fvmrc"}
+
+// applyFlutterFvm prefixes the Dart/Flutter entry in found (if present)
+// with `fvm` when the repository pins its SDK version via FVM, so commands
+// run the pinned SDK instead of whatever `flutter` resolves to on PATH.
+func applyFlutterFvm(found []Ecosystem, topNames map[string]bool) {
+	usesFvm := false
+	for _, m := range flutterFvmMarkers {
+		if topNames[m] {
+			usesFvm = true
+			break
+		}
+	}
+	if !usesFvm {
+		return
+	}
+	for i := range found {
+		if found[i].Name != "Dart/Flutter" {
+			continue
+		}
+		found[i].BuildCmd = "fvm " + found[i].BuildCmd
+		found[i].TestCmd = "fvm " + found[i].TestCmd
+		found[i].LintCmd = "fvm " + found[i].LintCmd
 	}
 }
 

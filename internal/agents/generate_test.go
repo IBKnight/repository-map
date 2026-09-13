@@ -90,6 +90,67 @@ func TestAnalyzeDetectsEnvExample(t *testing.T) {
 	}
 }
 
+func TestAnalyzeUsesFvmCommandsWhenFvmDirPresent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pubspec.yaml"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, ".fvm"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if len(a.Ecosystems) != 1 || a.Ecosystems[0].Name != "Dart/Flutter" {
+		t.Fatalf("expected Dart/Flutter ecosystem detected, got %+v", a.Ecosystems)
+	}
+	eco := a.Ecosystems[0]
+	if eco.BuildCmd != "fvm flutter build" || eco.TestCmd != "fvm flutter test" || eco.LintCmd != "fvm flutter analyze" {
+		t.Errorf("expected fvm-prefixed commands, got %+v", eco)
+	}
+}
+
+func TestAnalyzeUsesFvmCommandsWhenFvmrcPresent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pubspec.yaml"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".fvmrc"), []byte(`{"flutter":"3.19.0"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if len(a.Ecosystems) != 1 || a.Ecosystems[0].BuildCmd != "fvm flutter build" {
+		t.Fatalf("expected fvm-prefixed commands, got %+v", a.Ecosystems)
+	}
+}
+
+func TestAnalyzeWithoutFvmUsesPlainFlutterCommands(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pubspec.yaml"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if len(a.Ecosystems) != 1 || a.Ecosystems[0].BuildCmd != "flutter build" {
+		t.Fatalf("expected plain flutter commands, got %+v", a.Ecosystems)
+	}
+}
+
 func TestAnalyzeDetectsStyleConfigs(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ".editorconfig"), []byte(""), 0o644); err != nil {

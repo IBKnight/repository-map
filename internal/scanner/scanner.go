@@ -28,19 +28,30 @@ type Options struct {
 }
 
 var defaultIgnoredDirs = map[string]bool{
-	".git":         true,
-	".hg":          true,
-	".svn":         true,
-	"node_modules": true,
-	"vendor":       true,
-	"dist":         true,
-	"build":        true,
-	".venv":        true,
-	"venv":         true,
-	"__pycache__":  true,
-	".idea":        true,
-	".vscode":      true,
-	".DS_Store":    true,
+	".git":          true,
+	".hg":           true,
+	".svn":          true,
+	"node_modules":  true,
+	"vendor":        true,
+	"dist":          true,
+	"build":         true,
+	".venv":         true,
+	"venv":          true,
+	"__pycache__":   true,
+	".idea":         true,
+	".vscode":       true,
+	".DS_Store":     true,
+	".dart_tool":    true, // Dart/Flutter build cache
+	"target":        true, // Rust (Cargo) / Java (Maven) build output
+	".gradle":       true, // Gradle build cache
+	"Pods":          true, // CocoaPods (iOS/macOS)
+	"DerivedData":   true, // Xcode build output
+	".terraform":    true, // Terraform provider/module cache
+	"coverage":      true, // test coverage reports (many ecosystems)
+	".next":         true, // Next.js build output
+	".nuxt":         true, // Nuxt.js build output
+	".pytest_cache": true, // pytest cache
+	".mypy_cache":   true, // mypy cache
 }
 
 // Scan walks root and returns its tree as a single Node.

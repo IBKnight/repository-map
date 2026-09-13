@@ -3,6 +3,7 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -73,6 +74,24 @@ func TestScanDefaultIgnoresGitDir(t *testing.T) {
 	for _, n := range Flatten(root) {
 		if n.Path == ".git" || n.Path == ".git/config" {
 			t.Errorf(".git should always be skipped")
+		}
+	}
+}
+
+func TestScanDefaultIgnoresGeneratedDirs(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, ".dart_tool", "package_config.json"), "{}")
+	mustWrite(t, filepath.Join(dir, "target", "debug", "app"), "x")
+	mustWrite(t, filepath.Join(dir, "lib", "main.dart"), "void main() {}")
+
+	root, err := Scan(dir, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, n := range Flatten(root) {
+		if strings.HasPrefix(n.Path, ".dart_tool") || strings.HasPrefix(n.Path, "target") {
+			t.Errorf("generated dir %q should be skipped", n.Path)
 		}
 	}
 }

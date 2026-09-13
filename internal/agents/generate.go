@@ -34,6 +34,7 @@ func filesForTarget(t Target, a Analysis) ([]file, error) {
 		return []file{
 			{relPath: "CLAUDE.md", content: renderClaudeMD(a)},
 			{relPath: filepath.Join(".claude", "skills", slug, "SKILL.md"), content: renderClaudeSkill(a)},
+			{relPath: filepath.Join(".claude", "settings.json"), content: renderClaudeSettings(a)},
 		}, nil
 	case TargetCopilot:
 		return []file{

@@ -22,19 +22,13 @@ jobs:
           cache: true
 
       - name: Check formatting
-        run: |
-          fmt_out="$(gofmt -l .)"
-          if [ -n "$fmt_out" ]; then
-            echo "The following files are not gofmt-formatted:"
-            echo "$fmt_out"
-            exit 1
-          fi
+        run: make fmt-check
 
       - name: Vet
-        run: go vet ./...
+        run: make vet
 
       - name: Build
-        run: go build ./...
+        run: make build
 
       - name: Test
         run: go test ./... -race -cover

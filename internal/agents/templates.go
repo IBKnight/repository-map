@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -82,6 +83,71 @@ func renderClaudeSkill(a Analysis) string {
 	b.WriteString(overviewBody(a))
 	b.WriteString("Use this context to navigate the repository before making changes; re-run `repomap agents` after significant structural changes to refresh it.\n")
 	return b.String()
+}
+
+// claudeSettings mirrors the shape of .claude/settings.json's permissions
+// block (only the fields this tool populates).
+type claudeSettings struct {
+	Permissions struct {
+		Allow []string `json:"allow"`
+		Deny  []string `json:"deny"`
+	} `json:"permissions"`
+}
+
+// renderClaudeSettings builds .claude/settings.json: a permissions allowlist
+// derived from the repository's detected ecosystems, so Claude Code doesn't
+// prompt for routine build/test/lint/git-inspection commands. Destructive
+// git operations and arbitrary shell stay gated regardless of ecosystem.
+func renderClaudeSettings(a Analysis) string {
+	allow := []string{
+		"Bash(git status*)",
+		"Bash(git diff*)",
+		"Bash(git log*)",
+		"Bash(git add*)",
+		"Bash(find .*)",
+		"Bash(ls*)",
+	}
+
+	seen := map[string]bool{}
+	for _, eco := range a.Ecosystems {
+		for _, cmd := range []string{eco.BuildCmd, eco.TestCmd, eco.LintCmd} {
+			if cmd == "" {
+				continue
+			}
+			rule := "Bash(" + commandPrefix(cmd) + "*)"
+			if !seen[rule] {
+				seen[rule] = true
+				allow = append(allow, rule)
+			}
+		}
+	}
+
+	var s claudeSettings
+	s.Permissions.Allow = allow
+	s.Permissions.Deny = []string{
+		"Bash(git push --force*)",
+		"Bash(git push -f*)",
+		"Bash(git reset --hard*)",
+		"Bash(git clean -f*)",
+		"Bash(git branch -D*)",
+		"Bash(git checkout .*)",
+		"Bash(git restore .*)",
+		"Bash(rm -rf*)",
+	}
+
+	out, _ := json.MarshalIndent(s, "", "  ")
+	return string(out) + "\n"
+}
+
+// commandPrefix reduces a shell command to its first two whitespace-separated
+// tokens (e.g. "go test ./..." -> "go test"), used as a permission-rule
+// prefix that still covers common flag variations of the same command.
+func commandPrefix(cmd string) string {
+	fields := strings.Fields(cmd)
+	if len(fields) > 2 {
+		fields = fields[:2]
+	}
+	return strings.Join(fields, " ")
 }
 
 // renderCopilotInstructions builds .github/copilot-instructions.md.

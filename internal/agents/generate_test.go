@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -78,5 +79,61 @@ func TestGenerateWritesAndSkipsExisting(t *testing.T) {
 func TestParseTargetsRejectsUnknown(t *testing.T) {
 	if _, err := ParseTargets([]string{"bogus"}); err == nil {
 		t.Fatal("expected error for unknown target")
+	}
+}
+
+func TestClaudeTargetGeneratesValidSettingsPermissions(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "go.mod"), []byte("module x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root, err := scanner.Scan(src, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := Analyze(root, "demo")
+
+	out := t.TempDir()
+	if _, err := Generate(a, []Target{TargetClaude}, out, false); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(out, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("expected .claude/settings.json to be written: %v", err)
+	}
+
+	var parsed struct {
+		Permissions struct {
+			Allow []string `json:"allow"`
+			Deny  []string `json:"deny"`
+		} `json:"permissions"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("settings.json is not valid JSON: %v", err)
+	}
+
+	wantAllow := map[string]bool{"Bash(go build*)": true, "Bash(go test*)": true, "Bash(npm run*)": true}
+	got := map[string]bool{}
+	for _, rule := range parsed.Permissions.Allow {
+		got[rule] = true
+	}
+	for rule := range wantAllow {
+		if !got[rule] {
+			t.Errorf("expected allow rule %q, got %+v", rule, parsed.Permissions.Allow)
+		}
+	}
+
+	foundDeny := false
+	for _, rule := range parsed.Permissions.Deny {
+		if rule == "Bash(git reset --hard*)" {
+			foundDeny = true
+		}
+	}
+	if !foundDeny {
+		t.Errorf("expected destructive git commands to be denied, got %+v", parsed.Permissions.Deny)
 	}
 }

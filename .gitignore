@@ -1,0 +1,6 @@
+/repomap
+/dist/
+*.exe
+*.test
+*.out
+.DS_Store

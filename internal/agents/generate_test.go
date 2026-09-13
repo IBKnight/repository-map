@@ -29,6 +29,26 @@ func TestAnalyzeDetectsGoEcosystem(t *testing.T) {
 	}
 }
 
+func TestAnalyzeDetectsFlutterEcosystem(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pubspec.yaml"), []byte("name: demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(root, "demo")
+	if len(a.Ecosystems) != 1 || a.Ecosystems[0].Name != "Dart/Flutter" {
+		t.Fatalf("expected Dart/Flutter ecosystem detected, got %+v", a.Ecosystems)
+	}
+	if a.Ecosystems[0].TestCmd != "flutter test" {
+		t.Errorf("expected flutter test command, got %+v", a.Ecosystems[0])
+	}
+}
+
 func TestGenerateWritesAndSkipsExisting(t *testing.T) {
 	src := t.TempDir()
 	if err := os.WriteFile(filepath.Join(src, "go.mod"), []byte("module x\n"), 0o644); err != nil {

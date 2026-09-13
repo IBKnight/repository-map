@@ -30,6 +30,10 @@ var markers = []Ecosystem{
 	{Name: "Ruby", Marker: "Gemfile", BuildCmd: "bundle install", TestCmd: "bundle exec rspec", LintCmd: "bundle exec rubocop"},
 	{Name: "PHP", Marker: "composer.json", BuildCmd: "composer install", TestCmd: "composer test", LintCmd: "composer lint"},
 	{Name: "C/C++ (CMake)", Marker: "CMakeLists.txt", BuildCmd: "cmake --build build", TestCmd: "ctest --test-dir build", LintCmd: ""},
+	{Name: "Dart/Flutter", Marker: "pubspec.yaml", BuildCmd: "flutter build", TestCmd: "flutter test", LintCmd: "flutter analyze"},
+	{Name: "Elixir", Marker: "mix.exs", BuildCmd: "mix compile", TestCmd: "mix test", LintCmd: "mix credo"},
+	{Name: "Swift", Marker: "Package.swift", BuildCmd: "swift build", TestCmd: "swift test", LintCmd: ""},
+	{Name: "Deno", Marker: "deno.json", BuildCmd: "", TestCmd: "deno test", LintCmd: "deno lint"},
 }
 
 // Analysis is the summary handed to the instruction-file templates.

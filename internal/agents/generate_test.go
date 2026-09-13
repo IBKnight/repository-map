@@ -23,7 +23,7 @@ func TestAnalyzeDetectsGoEcosystem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := Analyze(root, "myproj")
+	a := Analyze(dir, root, "myproj")
 	if len(a.Ecosystems) != 1 || a.Ecosystems[0].Name != "Go" {
 		t.Fatalf("expected Go ecosystem detected, got %+v", a.Ecosystems)
 	}
@@ -40,12 +40,116 @@ func TestAnalyzeDetectsFlutterEcosystem(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := Analyze(root, "demo")
+	a := Analyze(dir, root, "demo")
 	if len(a.Ecosystems) != 1 || a.Ecosystems[0].Name != "Dart/Flutter" {
 		t.Fatalf("expected Dart/Flutter ecosystem detected, got %+v", a.Ecosystems)
 	}
 	if a.Ecosystems[0].TestCmd != "flutter test" {
 		t.Errorf("expected flutter test command, got %+v", a.Ecosystems[0])
+	}
+}
+
+func TestAnalyzeUsesPnpmCommandsWhenLockfilePresent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if len(a.Ecosystems) != 1 || a.Ecosystems[0].Name != "Node.js" {
+		t.Fatalf("expected Node.js ecosystem detected, got %+v", a.Ecosystems)
+	}
+	eco := a.Ecosystems[0]
+	if eco.BuildCmd != "pnpm build" || eco.TestCmd != "pnpm test" || eco.LintCmd != "pnpm lint" {
+		t.Errorf("expected pnpm commands, got %+v", eco)
+	}
+}
+
+func TestAnalyzeDetectsEnvExample(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.example"), []byte("API_KEY=\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if a.EnvExample != ".env.example" {
+		t.Errorf("expected .env.example detected, got %q", a.EnvExample)
+	}
+}
+
+func TestAnalyzeDetectsStyleConfigs(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".editorconfig"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".golangci.yml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	want := []string{".editorconfig", ".golangci.yml"}
+	if len(a.StyleConfigs) != len(want) {
+		t.Fatalf("expected %v, got %v", want, a.StyleConfigs)
+	}
+	for i, w := range want {
+		if a.StyleConfigs[i] != w {
+			t.Errorf("expected %v, got %v", want, a.StyleConfigs)
+			break
+		}
+	}
+}
+
+func TestAnalyzeDetectsSubProjects(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "apps", "web"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "services", "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "apps", "web", "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "services", "api", "go.mod"), []byte("module api\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := scanner.Scan(dir, scanner.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a := Analyze(dir, root, "demo")
+	if len(a.Ecosystems) != 0 {
+		t.Errorf("expected no root-level ecosystems, got %+v", a.Ecosystems)
+	}
+	want := []string{"apps/web", "services/api"}
+	if len(a.SubProjects) != len(want) {
+		t.Fatalf("expected %v, got %v", want, a.SubProjects)
+	}
+	for i, w := range want {
+		if a.SubProjects[i] != w {
+			t.Errorf("expected %v, got %v", want, a.SubProjects)
+			break
+		}
 	}
 }
 
@@ -58,7 +162,7 @@ func TestGenerateWritesAndSkipsExisting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := Analyze(root, "myproj")
+	a := Analyze(src, root, "myproj")
 
 	out := t.TempDir()
 	targets, err := ParseTargets([]string{"generic"})
@@ -114,7 +218,7 @@ func TestClaudeTargetGeneratesValidSettingsPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := Analyze(root, "demo")
+	a := Analyze(src, root, "demo")
 
 	out := t.TempDir()
 	if _, err := Generate(a, []Target{TargetClaude}, out, false); err != nil {

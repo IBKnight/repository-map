@@ -56,7 +56,7 @@ Existing files are left untouched unless --force is given.`,
 			name = filepath.Base(abs)
 		}
 
-		analysis := agents.Analyze(root, name)
+		analysis := agents.Analyze(path, root, name)
 
 		outDir := agentsOutputDir
 		if outDir == "" {

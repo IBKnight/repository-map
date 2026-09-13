@@ -27,6 +27,18 @@ func overviewBody(a Analysis) string {
 		b.WriteString("\n\n")
 	}
 
+	if len(a.Frameworks) > 0 {
+		fmt.Fprintf(&b, "**Key dependencies:** %s\n\n", strings.Join(a.Frameworks, ", "))
+	}
+
+	if len(a.EntryPoints) > 0 {
+		b.WriteString("**Entry points:**\n\n")
+		for _, ep := range a.EntryPoints {
+			fmt.Fprintf(&b, "- `%s`\n", ep)
+		}
+		b.WriteString("\n")
+	}
+
 	if len(a.TopLevel) > 0 {
 		b.WriteString("**Top-level layout:**\n\n")
 		for _, dir := range a.TopLevel {
@@ -47,6 +59,37 @@ func overviewBody(a Analysis) string {
 			}
 			if eco.LintCmd != "" {
 				fmt.Fprintf(&b, "  - Lint: `%s`\n", eco.LintCmd)
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	if len(a.SubProjects) > 0 {
+		b.WriteString("**Sub-projects:**\n\n")
+		for _, dir := range a.SubProjects {
+			fmt.Fprintf(&b, "- `%s/`\n", dir)
+		}
+		b.WriteString("\n")
+	}
+
+	if len(a.StyleConfigs) > 0 {
+		fmt.Fprintf(&b, "**Style/lint config:** follow %s instead of guessing conventions.\n\n", backtickJoin(a.StyleConfigs))
+	}
+
+	if a.EnvExample != "" {
+		fmt.Fprintf(&b, "**Environment:** copy `%s` to `.env` and fill in the required values before running.\n\n", a.EnvExample)
+	}
+
+	if len(a.CI) > 0 {
+		b.WriteString("**CI:**\n\n")
+		for _, sys := range a.CI {
+			fmt.Fprintf(&b, "- %s\n", sys.Provider)
+			for _, wf := range sys.Workflows {
+				if wf.Name != "" {
+					fmt.Fprintf(&b, "  - `%s` (%q)\n", wf.Path, wf.Name)
+				} else {
+					fmt.Fprintf(&b, "  - `%s`\n", wf.Path)
+				}
 			}
 		}
 		b.WriteString("\n")
@@ -103,9 +146,14 @@ func renderClaudeSettings(a Analysis) string {
 		"Bash(git status*)",
 		"Bash(git diff*)",
 		"Bash(git log*)",
+		"Bash(git show*)",
+		"Bash(git blame*)",
 		"Bash(git add*)",
 		"Bash(find .*)",
 		"Bash(ls*)",
+		"Bash(grep*)",
+		"Bash(rg*)",
+		"Bash(wc*)",
 	}
 
 	seen := map[string]bool{}
@@ -183,6 +231,15 @@ func renderAgentsMD(a Analysis) string {
 	b.WriteString("- Keep changes scoped to what was asked.\n")
 	b.WriteString("- Follow the build/test/lint commands above to validate changes before finishing.\n")
 	return b.String()
+}
+
+// backtickJoin renders each item as inline code, comma-separated.
+func backtickJoin(items []string) string {
+	quoted := make([]string, len(items))
+	for i, it := range items {
+		quoted[i] = "`" + it + "`"
+	}
+	return strings.Join(quoted, ", ")
 }
 
 var nonSlugChars = regexp.MustCompile(`[^a-z0-9]+`)
